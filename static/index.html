@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YapeChecker Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="https://img.icons8.com/color/48/000000/money-circulation.png">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar / Header -->
+        <header class="main-header">
+            <div class="logo-area">
+                <img src="https://img.icons8.com/color/96/000000/money-circulation.png" alt="Logo" class="logo">
+                <h1>YapeChecker</h1>
+            </div>
+            <nav>
+                <button id="refresh-btn" class="btn-icon">🔄</button>
+            </nav>
+        </header>
+
+        <!-- Main Content -->
+        <main>
+            <!-- Metrics Cards -->
+            <section class="metrics-grid">
+                <div class="card metric-card">
+                    <h3>Total Recaudado</h3>
+                    <p class="metric-value">S/ <span id="total-amount">0.00</span></p>
+                    <small>Hoy</small>
+                </div>
+                <div class="card metric-card">
+                    <h3>Tienda 1</h3>
+                    <p class="metric-value">S/ <span id="tienda1-amount">0.00</span></p>
+                </div>
+                <div class="card metric-card">
+                    <h3>Tienda 2</h3>
+                    <p class="metric-value">S/ <span id="tienda2-amount">0.00</span></p>
+                </div>
+                <div class="card metric-card">
+                    <h3>Pagos</h3>
+                    <p class="metric-value"><span id="total-count">0</span></p>
+                </div>
+            </section>
+
+            <!-- Filters & Controls -->
+            <section class="controls-area">
+                <div class="search-box">
+                    <input type="text" id="search-input" placeholder="Buscar por remitente...">
+                </div>
+                <div class="filters">
+                    <select id="filter-store">
+                        <option value="all">Todas las Tiendas</option>
+                        <option value="Tienda 1">Tienda 1</option>
+                        <option value="Tienda 2">Tienda 2</option>
+                        <option value="Sin asignar">Sin asignar</option>
+                    </select>
+                    <select id="filter-status">
+                        <option value="all">Todos los Estados</option>
+                        <option value="Pendiente">Pendiente</option>
+                        <option value="Verificado">Verificado</option>
+                        <option value="Rechazado">Rechazado</option>
+                    </select>
+                </div>
+            </section>
+
+            <!-- Payments Table -->
+            <section class="table-container card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Hora</th>
+                            <th>Monto</th>
+                            <th>Remitente</th>
+                            <th>Tienda</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="payments-body">
+                        <!-- Rows injected by JS -->
+                    </tbody>
+                </table>
+            </section>
+        </main>
+    </div>
+    
+    <!-- Edit Modal (Optional, for now inline editing is simpler) -->
+    
+    <script src="script.js"></script>
+</body>
+</html>
