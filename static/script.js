@@ -11,6 +11,30 @@ const searchInput = document.getElementById('search-input');
 const filterStore = document.getElementById('filter-store');
 const filterStatus = document.getElementById('filter-status');
 const refreshBtn = document.getElementById('refresh-btn');
+const pageTitleEl = document.getElementById('page-title');
+
+// Navegación entre secciones (Pagos / Calculadora)
+const sectionTitles = {
+    pagos: 'Pagos Yape',
+    calculadora: 'Calculadora de precios'
+};
+
+document.querySelectorAll('.nav-item[data-section]').forEach(item => {
+    if (item.classList.contains('nav-item--disabled')) return;
+    item.addEventListener('click', (e) => {
+        e.preventDefault();
+        const sectionId = item.dataset.section;
+        if (!sectionId) return;
+        document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        const section = document.getElementById('section-' + sectionId);
+        if (section) {
+            section.classList.add('active');
+            item.classList.add('active');
+            if (pageTitleEl && sectionTitles[sectionId]) pageTitleEl.textContent = sectionTitles[sectionId];
+        }
+    });
+});
 
 // Fetch Data
 async function fetchPayments() {
@@ -20,7 +44,7 @@ async function fetchPayments() {
         const result = await response.json();
         
         if (result.status === 'success') {
-            paymentsData = result.data;
+            paymentsData = Array.isArray(result.data) ? result.data : [];
             renderDashboard();
         }
     } catch (error) {

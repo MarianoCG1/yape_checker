@@ -3,3 +3,5 @@ uvicorn
 gspread
 oauth2client
 pydantic
+numpy
+opencv-python-headless

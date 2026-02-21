@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Body
+from fastapi import FastAPI, HTTPException, Body, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -170,6 +170,36 @@ async def update_payment(payment_id: str, update: PaymentUpdate):
     except Exception as e:
         logger.error(f"Error update: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- Análisis de color por página (Copy-on calculadora) ---
+@app.post("/api/analyze-page")
+async def analyze_page(file: UploadFile = File(...)):
+    """
+    Sube una imagen de una página (PNG/JPEG) y devuelve análisis de uso de color:
+    color_pct (0-100), tier (bajo/medio/alto), saturación y aproximación CMYK.
+    Para usar en la calculadora de precios por impresión.
+    """
+    try:
+        content_type = file.content_type or ""
+        if "image/" not in content_type:
+            raise HTTPException(
+                status_code=400,
+                detail="Solo se aceptan imágenes (image/png, image/jpeg, etc.)",
+            )
+        data = await file.read()
+        if not data:
+            raise HTTPException(status_code=400, detail="Archivo vacío")
+        from color_analysis import analyze_image
+
+        result = analyze_image(data)
+        return {"status": "success", "analysis": result}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception("Error en análisis de página")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 if __name__ == "__main__":
     import uvicorn
