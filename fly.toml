@@ -1,0 +1,18 @@
+app = "yapechecker"
+primary_region = "scl"
+
+[build]
+  builder = "python-builder"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines = 0
+  max_machines = 1
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 256
