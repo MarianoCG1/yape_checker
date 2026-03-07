@@ -13,15 +13,14 @@
         <!-- Sidebar Copy-on -->
         <aside class="sidebar">
             <div class="sidebar-brand">
-                <span class="brand-copy">COPY</span>
-                <span class="brand-on">on</span>
+                <img src="images/LogoCopyOn.png" alt="Copy-on" class="sidebar-logo">
             </div>
             <nav class="sidebar-nav">
                 <a href="#" class="nav-item active" data-section="pagos">
                     <span class="nav-icon">💰</span>
                     <span>Pagos Yape</span>
                 </a>
-                <a href="#" class="nav-item" data-section="calculadora">
+<a href="#" class="nav-item nav-item--disabled" data-section="calculadora" title="Próximamente">
                     <span class="nav-icon">🧮</span>
                     <span>Calculadora</span>
                 </a>
@@ -104,15 +103,67 @@
 
             <!-- Sección: Calculadora de precios -->
             <main class="content-section" id="section-calculadora">
-                <div class="card calculator-intro">
-                    <h2>Calculadora de precios</h2>
-                    <p>Aquí irá la calculadora para impresiones: tamaño (A4, A3, A5, ploteos), cantidad de páginas, B/N o color (poco color 40 cént. / lleno S/ 1), una o dos caras, anillado, etc.</p>
-                    <p><strong>Próximo paso:</strong> definir la tabla de precios con vos y tu mamá (por tamaño, tipo y tramos) y la implementamos.</p>
+                <div class="calc-layout">
+                    <!-- Opciones en lateral vertical -->
+                    <aside class="calc-options card">
+                        <h2 class="calc-options-title">Opciones</h2>
+                        <form id="calculator-form" class="calculator-form calculator-form--vertical">
+                            <div class="form-group">
+                                <label for="calc-file">Archivo</label>
+                                <input type="file" id="calc-file" name="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg">
+                                <small>PDF, Word, Excel, PPT o imagen</small>
+                            </div>
+                            <div class="form-options form-options--vertical">
+                                <label class="option-check">
+                                    <input type="checkbox" id="opt-ambos-lados" name="ambos_lados">
+                                    <span>Por ambos lados</span>
+                                </label>
+                                <label class="option-check">
+                                    <input type="checkbox" id="opt-anillado" name="anillado">
+                                    <span>Anillado</span>
+                                </label>
+                                <label class="option-check">
+                                    <input type="checkbox" id="opt-tinta" name="a_tinta" checked>
+                                    <span>A tinta</span>
+                                </label>
+                            </div>
+                            <button type="submit" class="btn-calc" id="btn-calcular">Calcular precio</button>
+                        </form>
+                        <div id="calc-result" class="calc-result" hidden>
+                            <h3>Resultado</h3>
+                            <p class="calc-total">Total: S/ <span id="calc-total-value">0.00</span></p>
+                            <pre id="calc-desglose" class="calc-desglose"></pre>
+                        </div>
+                        <div id="calc-error" class="calc-error" hidden></div>
+                        <div id="calc-loading" class="calc-loading" hidden>Calculando…</div>
+                    </aside>
+
+                    <!-- Vista previa de páginas (estilo Word/PDF) -->
+                    <div class="calc-preview-area card">
+                        <h2 class="preview-area-title">Vista previa</h2>
+                        <div class="preview-container">
+                            <div class="preview-thumbnails" id="preview-thumbnails">
+                                <div class="preview-empty" id="preview-empty">
+                                    <span class="preview-empty-icon">📄</span>
+                                    <p>Subí un archivo para ver las páginas</p>
+                                    <small>PDF o imagen</small>
+                                </div>
+                            </div>
+                            <div class="preview-main" id="preview-main">
+                                <div class="preview-main-placeholder" id="preview-main-placeholder">
+                                    <span>Seleccioná una página</span>
+                                </div>
+                                <canvas id="preview-canvas" class="preview-canvas" hidden></canvas>
+                                <img id="preview-image" class="preview-image" alt="Vista previa" hidden>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </main>
         </div>
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
     <script src="script.js"></script>
 </body>
 </html>

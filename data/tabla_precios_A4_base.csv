@@ -1,0 +1,7 @@
+tamaño,tipo,caras,tramo_min,tramo_max,precio_unitario_soles,notas
+A4,B/N,1,1,50,0.30,normal 1 cara
+A4,B/N,1,51,9999,0.20,al por mayor 1 cara
+A4,B/N,2,1,9999,0.15,ambos lados
+A4,color,1,1,9999,0.40,minimo por hoja (poco color)
+A4,color,1,1,9999,1.00,maximo por hoja (lleno) - ver ecuacion con color_pct
+A4,color_media_hoja,1,1,9999,0.65,60-70 centimos referencia

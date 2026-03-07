@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Body, File, UploadFile
+from fastapi import FastAPI, HTTPException, Body, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -169,6 +169,133 @@ async def update_payment(payment_id: str, update: PaymentUpdate):
         
     except Exception as e:
         logger.error(f"Error update: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- Calculadora de precios (Copy-on) ---
+def _get_page_count_and_images(data: bytes, filename: str, content_type: str):
+    """Devuelve (num_pages, list_of_image_bytes) para PDF/imagen; para Office devuelve (num_pages, None) sin imágenes."""
+    ext = (filename or "").lower().split(".")[-1]
+    if ext == "pdf" or (content_type or "").startswith("application/pdf"):
+        try:
+            import fitz  # PyMuPDF
+            doc = fitz.open(stream=data, filetype="pdf")
+            pages = []
+            for i in range(len(doc)):
+                page = doc.load_page(i)
+                pix = page.get_pixmap(dpi=150)
+                img_bytes = pix.tobytes("png")
+                pages.append(img_bytes)
+            doc.close()
+            return len(pages), pages
+        except Exception as e:
+            logger.exception("Error leyendo PDF")
+            raise ValueError(f"No se pudo leer el PDF: {e}")
+    if ext in ("png", "jpg", "jpeg") or (content_type or "").startswith("image/"):
+        return 1, [data]
+    if ext in ("docx", "doc"):
+        try:
+            from docx import Document
+            from io import BytesIO
+            doc = Document(BytesIO(data))
+            # Estimación: ~1 página cada 20 párrafos
+            n = max(1, len(doc.paragraphs) // 20 + 1)
+            return n, None
+        except Exception as e:
+            logger.exception("Error leyendo Word")
+            raise ValueError(f"No se pudo leer el Word: {e}")
+    if ext in ("xlsx", "xls"):
+        try:
+            import openpyxl
+            from io import BytesIO
+            wb = openpyxl.load_workbook(BytesIO(data), read_only=True)
+            n = len(wb.sheetnames)
+            wb.close()
+            return max(1, n), None
+        except Exception as e:
+            logger.exception("Error leyendo Excel")
+            raise ValueError(f"No se pudo leer el Excel: {e}")
+    if ext in ("pptx", "ppt"):
+        try:
+            from pptx import Presentation
+            from io import BytesIO
+            prs = Presentation(BytesIO(data))
+            n = len(prs.slides)
+            return max(1, n), None
+        except Exception as e:
+            logger.exception("Error leyendo PowerPoint")
+            raise ValueError(f"No se pudo leer el PowerPoint: {e}")
+    raise ValueError("Formato no soportado. Use PDF, Word, Excel, PowerPoint o imagen.")
+
+
+@app.post("/api/calculate-price")
+async def calculate_price(
+    file: UploadFile = File(...),
+    ambos_lados: str = Form("false"),
+    anillado: str = Form("false"),
+    a_tinta: str = Form("true"),
+):
+    """
+    Sube un archivo (PDF, Word, Excel, PPT o imagen) y opciones para calcular el precio A4.
+    Opciones: por ambos lados, anillado, a tinta.
+    """
+    try:
+        data = await file.read()
+        if not data:
+            raise HTTPException(status_code=400, detail="Archivo vacío")
+        opts_ambos = ambos_lados.lower() == "true"
+        opts_anillado = anillado.lower() == "true"
+        opts_tinta = a_tinta.lower() == "true"
+
+        num_pages, image_list = _get_page_count_and_images(data, file.filename or "", file.content_type or "")
+
+        # Precios A4 (por ahora fijos; luego desde CSV/Excel)
+        PRECIO_BN_UNA_CARA = 0.30
+        PRECIO_BN_AMBOS = 0.15
+        PRECIO_BN_MAYOR = 0.20
+        PRECIO_COLOR_MIN = 0.40
+        PRECIO_COLOR_MAX = 1.00
+        ANILLADO_FIJO = 2.00
+
+        total = 0.0
+        lineas = []
+
+        if opts_ambos:
+            # Por ambos lados: 0.15 por página (B/N)
+            precio_pag = PRECIO_BN_AMBOS
+            if num_pages > 50:
+                precio_pag = PRECIO_BN_AMBOS  # mismo por mayor
+            total = round(precio_pag * num_pages, 2)
+            lineas.append(f"{num_pages} páginas × S/ {precio_pag:.2f} (ambos lados B/N) = S/ {total:.2f}")
+        elif image_list is not None and opts_tinta:
+            # Tenemos imágenes: análisis de color por página (PDF o imagen)
+            from color_analysis import analyze_image
+            for i, img_bytes in enumerate(image_list):
+                anal = analyze_image(img_bytes)
+                color_pct = anal.get("color_pct", 0) or 0
+                precio_hoja = PRECIO_COLOR_MIN + (PRECIO_COLOR_MAX - PRECIO_COLOR_MIN) * (color_pct / 100.0)
+                total += round(precio_hoja, 2)
+                lineas.append(f"Pág {i+1}: color {color_pct:.1f}% → S/ {precio_hoja:.2f}")
+        else:
+            # Sin imágenes (Office) o sin tinta: precio B/N por página
+            precio_pag = PRECIO_BN_UNA_CARA
+            if num_pages > 50:
+                precio_pag = PRECIO_BN_MAYOR
+            total = round(precio_pag * num_pages, 2)
+            lineas.append(f"{num_pages} páginas × S/ {precio_pag:.2f} (B/N estimado) = S/ {total:.2f}")
+            if image_list is None:
+                lineas.append("(Sube PDF o imagen para cálculo con análisis de color.)")
+
+        if opts_anillado:
+            total = round(total + ANILLADO_FIJO, 2)
+            lineas.append(f"Anillado: S/ {ANILLADO_FIJO:.2f}")
+
+        desglose = "\n".join(lineas)
+        return {"status": "success", "total": total, "desglose": desglose, "num_pages": num_pages}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception("Error en calculate-price")
         raise HTTPException(status_code=500, detail=str(e))
 
 

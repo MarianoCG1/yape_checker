@@ -160,3 +160,235 @@ setInterval(fetchPayments, 5000);
 
 // Initial Load
 fetchPayments();
+
+// --- Vista previa de páginas (PDF.js) ---
+if (typeof pdfjsLib !== 'undefined') {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+}
+
+let currentPdfDoc = null;
+let currentFileUrl = null;
+
+const previewThumbnails = document.getElementById('preview-thumbnails');
+const previewEmpty = document.getElementById('preview-empty');
+const previewMain = document.getElementById('preview-main');
+const previewMainPlaceholder = document.getElementById('preview-main-placeholder');
+const previewCanvas = document.getElementById('preview-canvas');
+const previewImage = document.getElementById('preview-image');
+const calcFileInput = document.getElementById('calc-file');
+
+function clearPreview() {
+    if (currentFileUrl) URL.revokeObjectURL(currentFileUrl);
+    currentFileUrl = null;
+    currentPdfDoc = null;
+    if (previewThumbnails) {
+        const toRemove = Array.from(previewThumbnails.children).filter(el => el.id !== 'preview-empty');
+        toRemove.forEach(el => el.remove());
+    }
+    if (previewEmpty) previewEmpty.hidden = false;
+    if (previewMainPlaceholder) { previewMainPlaceholder.hidden = false; previewMainPlaceholder.textContent = 'Seleccioná una página'; }
+    if (previewCanvas) { previewCanvas.hidden = true; previewCanvas.getContext('2d')?.clearRect(0, 0, previewCanvas.width, previewCanvas.height); }
+    if (previewImage) { previewImage.hidden = true; previewImage.src = ''; }
+}
+
+function showMainImage(src) {
+    if (previewMainPlaceholder) previewMainPlaceholder.hidden = true;
+    if (previewCanvas) previewCanvas.hidden = true;
+    if (previewImage) {
+        previewImage.src = src;
+        previewImage.hidden = false;
+    }
+}
+
+function showMainCanvas() {
+    if (previewMainPlaceholder) previewMainPlaceholder.hidden = true;
+    if (previewImage) previewImage.hidden = true;
+    if (previewCanvas) previewCanvas.hidden = false;
+}
+
+async function renderPdfThumbnail(pageNum, pdfDoc, container) {
+    const page = await pdfDoc.getPage(pageNum);
+    const viewport = page.getViewport({ scale: 0.28 });
+    const wrap = document.createElement('div');
+    wrap.className = 'preview-thumb-wrap';
+    const canvas = document.createElement('canvas');
+    canvas.height = viewport.height;
+    canvas.width = viewport.width;
+    canvas.className = 'preview-thumb';
+    const ctx = canvas.getContext('2d');
+    await page.render({ canvasContext: ctx, viewport }).promise;
+    const numSpan = document.createElement('span');
+    numSpan.className = 'preview-thumb-num';
+    numSpan.textContent = pageNum;
+    wrap.appendChild(canvas);
+    wrap.appendChild(numSpan);
+    wrap.dataset.page = pageNum;
+    wrap.addEventListener('click', () => selectPdfPage(pageNum, pdfDoc));
+    container.appendChild(wrap);
+}
+
+function selectPdfPage(pageNum, pdfDoc) {
+    previewThumbnails.querySelectorAll('.preview-thumb-wrap').forEach(el => el.classList.remove('active'));
+    const wrap = previewThumbnails.querySelector(`[data-page="${pageNum}"]`);
+    if (wrap) wrap.classList.add('active');
+    if (!pdfDoc || !previewCanvas) return;
+    pdfDoc.getPage(pageNum).then(async (page) => {
+        const scale = 1.2;
+        const viewport = page.getViewport({ scale });
+        previewCanvas.height = viewport.height;
+        previewCanvas.width = viewport.width;
+        const ctx = previewCanvas.getContext('2d');
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        showMainCanvas();
+    });
+}
+
+async function loadPdfPreview(file) {
+    clearPreview();
+    const url = URL.createObjectURL(file);
+    currentFileUrl = url;
+    if (typeof pdfjsLib === 'undefined') {
+        if (previewEmpty) { previewEmpty.hidden = false; previewEmpty.querySelector('p').textContent = 'Cargando PDF.js…'; }
+        return;
+    }
+    try {
+        const pdfDoc = await pdfjsLib.getDocument({ url }).promise;
+        currentPdfDoc = pdfDoc;
+        const numPages = pdfDoc.numPages;
+        if (previewEmpty) previewEmpty.hidden = true;
+        for (let i = 1; i <= numPages; i++) {
+            await renderPdfThumbnail(i, pdfDoc, previewThumbnails);
+        }
+        selectPdfPage(1, pdfDoc);
+    } catch (e) {
+        console.error(e);
+        if (previewEmpty) {
+            previewEmpty.hidden = false;
+            previewEmpty.querySelector('p').textContent = 'No se pudo cargar el PDF.';
+        }
+    }
+}
+
+function loadImagePreview(file) {
+    clearPreview();
+    const url = URL.createObjectURL(file);
+    currentFileUrl = url;
+    if (previewEmpty) previewEmpty.hidden = true;
+    const wrap = document.createElement('div');
+    wrap.className = 'preview-thumb-wrap';
+    const img = document.createElement('img');
+    img.src = url;
+    img.className = 'preview-thumb active';
+    img.alt = 'Página 1';
+    const num = document.createElement('span');
+    num.className = 'preview-thumb-num';
+    num.textContent = '1';
+    wrap.appendChild(img);
+    wrap.appendChild(num);
+    wrap.addEventListener('click', () => {
+        previewThumbnails.querySelectorAll('.preview-thumb-wrap').forEach(el => el.classList.remove('active'));
+        wrap.classList.add('active');
+        previewImage.src = url;
+        previewImage.hidden = false;
+        if (previewCanvas) previewCanvas.hidden = true;
+        if (previewMainPlaceholder) previewMainPlaceholder.hidden = true;
+    });
+    previewThumbnails.appendChild(wrap);
+    previewImage.src = url;
+    previewImage.hidden = false;
+    if (previewCanvas) previewCanvas.hidden = true;
+    if (previewMainPlaceholder) previewMainPlaceholder.hidden = true;
+}
+
+function loadOfficePlaceholder(filename) {
+    clearPreview();
+    if (previewEmpty) {
+        previewEmpty.hidden = false;
+        previewEmpty.querySelector('p').textContent = 'Vista previa no disponible';
+        const sm = previewEmpty.querySelector('small');
+        if (sm) sm.textContent = 'Word, Excel o PPT. Se verá el resultado al calcular.';
+    }
+    if (previewMainPlaceholder) {
+        previewMainPlaceholder.hidden = false;
+        previewMainPlaceholder.textContent = 'Subí PDF o imagen para ver páginas aquí.';
+    }
+}
+
+if (calcFileInput) {
+    calcFileInput.addEventListener('change', function () {
+        const file = this.files && this.files[0];
+        if (!file) { clearPreview(); return; }
+        const name = (file.name || '').toLowerCase();
+        const type = file.type || '';
+        if (type === 'application/pdf' || name.endsWith('.pdf')) {
+            loadPdfPreview(file);
+        } else if (type.startsWith('image/') || /\.(png|jpe?g)$/.test(name)) {
+            loadImagePreview(file);
+        } else {
+            loadOfficePlaceholder(file.name);
+        }
+    });
+}
+
+// --- Calculadora de precios ---
+const calculatorForm = document.getElementById('calculator-form');
+const calcResult = document.getElementById('calc-result');
+const calcError = document.getElementById('calc-error');
+const calcLoading = document.getElementById('calc-loading');
+const calcTotalValue = document.getElementById('calc-total-value');
+const calcDesglose = document.getElementById('calc-desglose');
+const btnCalcular = document.getElementById('btn-calcular');
+
+if (calculatorForm) {
+    calculatorForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fileInput = document.getElementById('calc-file');
+        if (!fileInput || !fileInput.files.length) {
+            showCalcError('Elegí un archivo.');
+            return;
+        }
+        const file = fileInput.files[0];
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('ambos_lados', document.getElementById('opt-ambos-lados').checked ? 'true' : 'false');
+        formData.append('anillado', document.getElementById('opt-anillado').checked ? 'true' : 'false');
+        formData.append('a_tinta', document.getElementById('opt-tinta').checked ? 'true' : 'false');
+
+        if (calcResult) calcResult.hidden = true;
+        if (calcError) { calcError.hidden = true; calcError.textContent = ''; }
+        if (calcLoading) calcLoading.hidden = false;
+        if (btnCalcular) btnCalcular.disabled = true;
+
+        try {
+            const res = await fetch('/api/calculate-price', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json().catch(() => ({}));
+            if (calcLoading) calcLoading.hidden = true;
+            if (btnCalcular) btnCalcular.disabled = false;
+
+            if (!res.ok) {
+                const errMsg = Array.isArray(data.detail) ? data.detail.map(d => d.msg || d).join(' ') : (data.detail || data.message || 'Error al calcular');
+                showCalcError(errMsg);
+                return;
+            }
+            if (data.status === 'success' && data.total !== undefined) {
+                if (calcTotalValue) calcTotalValue.textContent = Number(data.total).toFixed(2);
+                if (calcDesglose) calcDesglose.textContent = data.desglose || '';
+                if (calcResult) calcResult.hidden = false;
+            } else {
+                showCalcError(data.detail || data.message || 'Respuesta inesperada');
+            }
+        } catch (err) {
+            if (calcLoading) calcLoading.hidden = true;
+            if (btnCalcular) btnCalcular.disabled = false;
+            showCalcError('Error de conexión. ¿Está corriendo el servidor?');
+        }
+    });
+}
+
+function showCalcError(msg) {
+    const el = document.getElementById('calc-error');
+    if (el) { el.textContent = msg; el.hidden = false; }
+}

@@ -5,3 +5,7 @@ oauth2client
 pydantic
 numpy
 opencv-python-headless
+pymupdf
+python-docx
+openpyxl
+python-pptx
