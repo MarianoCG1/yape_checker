@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from datetime import datetime
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+import json
 import logging
 import uuid
 import os
@@ -42,9 +43,21 @@ SCOPES = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/a
 SPREADSHEET_NAME = "YapeChecker_Pagos"
 
 def get_google_sheet():
-    """Conecta con Google Sheets"""
+    """Conecta con Google Sheets.
+
+    En producción (Render y similares) no hay archivo persistente, así que
+    la credencial se lee de la variable de entorno GOOGLE_CREDENTIALS_JSON
+    (el contenido completo de credentials.json, pegado como texto). En
+    desarrollo local, si esa variable no está, cae al archivo
+    credentials.json (gitignoreado, nunca se sube al repo).
+    """
     try:
-        creds = ServiceAccountCredentials.from_json_keyfile_name('credentials.json', SCOPES)
+        raw_creds = os.environ.get("GOOGLE_CREDENTIALS_JSON")
+        if raw_creds:
+            creds_dict = json.loads(raw_creds)
+            creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, SCOPES)
+        else:
+            creds = ServiceAccountCredentials.from_json_keyfile_name('credentials.json', SCOPES)
         client = gspread.authorize(creds)
         sheet = client.open(SPREADSHEET_NAME).sheet1
         return sheet
