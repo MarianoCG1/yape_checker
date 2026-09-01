@@ -97,11 +97,17 @@ async def receive_payment(payment: Payment):
             # Fallback local/log
             return {"status": "logged", "id": payment_id, "message": "Sheets offline, logueado"}
         
-        # Verificar cabeceras para asegurar columna ID
+        # Verificar cabeceras para asegurar columnas ID y Tienda (cada una por
+        # separado -- agregar ambas sin chequear individualmente duplicaba
+        # "Tienda" si ya existía, rompiendo get_all_records más adelante).
         headers = sheet.row_values(1)
+        next_col = len(headers) + 1
         if "ID" not in headers:
-            sheet.update_cell(1, len(headers) + 1, "ID")
-            sheet.update_cell(1, len(headers) + 2, "Tienda") # Asegurar Tienda también
+            sheet.update_cell(1, next_col, "ID")
+            next_col += 1
+        if "Tienda" not in headers:
+            sheet.update_cell(1, next_col, "Tienda")
+            next_col += 1
         
         # Preparar datos
         # Orden esperado: Fecha, Hora, Monto, Remitente, Estado, Tienda, ID
@@ -125,17 +131,30 @@ async def receive_payment(payment: Payment):
         logger.error(f"Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+# Orden real de columnas escritas por receive_payment() -- se usa acá para
+# leer por posición en vez de por nombre de encabezado, así una fila de
+# headers desprolija (ej. "Tienda" duplicado) nunca rompe la lectura.
+COLUMN_ORDER = ["Fecha", "Hora", "Monto", "Remitente", "Estado", "Tienda", "ID"]
+
+
 @app.get("/api/payments")
 def get_payments():
-    """Obtiene todos los pagos como lista de dicts"""
+    """Obtiene todos los pagos como lista de dicts, leyendo por posición de
+    columna (no por nombre de encabezado -- inmune a headers duplicados)."""
     try:
         sheet = get_google_sheet()
         if not sheet:
             raise HTTPException(status_code=503, detail="Unavailable")
-            
-        records = sheet.get_all_records()
-        # Asegurar que todos tengan ID (para registros viejos)
-        # Esto es lento pero necesario para la transición
+
+        all_values = sheet.get_all_values()
+        rows = all_values[1:] if len(all_values) > 1 else []  # saltar encabezados
+        records = []
+        for row in rows:
+            record = {}
+            for i, col_name in enumerate(COLUMN_ORDER):
+                record[col_name] = row[i] if i < len(row) else ""
+            records.append(record)
+
         return {"status": "success", "data": records}
     except Exception as e:
         logger.error(f"Error: {e}")
