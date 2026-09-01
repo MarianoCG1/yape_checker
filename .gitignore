@@ -4,5 +4,5 @@ __pycache__/
 .venv
 env/
 venv/
-credentials.json
+credentials*.json
 temp.xlsx

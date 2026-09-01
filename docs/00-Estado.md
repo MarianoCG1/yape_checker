@@ -20,9 +20,16 @@ Sistema para registrar automáticamente los pagos por Yape que recibe el negocio
 - `credentials.json` (clave de Google) **NO está trackeada por git** (confirmado con `git ls-files`) — correcto, seguí así. Nunca la pegues en el chat ni la subas a un repo público.
 - **2026-08-31 — clave de servicio expuesta en el chat y rotada.** La clave original (`private_key_id` que empezaba con `dc08b9af...`) se pegó completa en una conversación con la IA para depurar el deploy. Se pidió rotarla de inmediato desde Google Cloud Console (borrar esa key, crear una nueva). **Si en algún momento el backend deja de poder autenticar con Google Sheets, lo primero a revisar es si la clave activa en la variable de entorno `GOOGLE_CREDENTIALS_JSON` de Render es la nueva (rotada) y no la vieja.**
 
-## Deploy — estado (2026-08-31)
+## ✅ Deploy — funcionando en producción (2026-09-01)
 
-Se eligió **Render** en vez de Fly.io (Fly pedía tarjeta de crédito antes de permitir cualquier deploy; el usuario prefirió no cargarla). `render.yaml` ya en el repo. Durante el primer intento de deploy salió `RuntimeError: Form data requires "python-multipart"` — faltaba esa dependencia en `requirements.txt` (nada que ver con las credenciales); corregido y empujado. Pendiente de confirmar que el redeploy automático terminó bien y de conseguir la URL pública final.
+Se eligió **Render** en vez de Fly.io (Fly pedía tarjeta de crédito; el usuario prefirió no cargarla). `render.yaml` en el repo. Dos problemas encontrados y resueltos en el camino: faltaba `python-multipart` en `requirements.txt` (rompía el arranque, nada que ver con credenciales), y la clave de servicio original quedó expuesta en el chat y se rotó (ver nota de seguridad arriba).
+
+- **URL pública confirmada:** https://yapechecker.onrender.com
+- **`/health`** responde 200 OK.
+- **`/api/payment`** probado con un pago de prueba real → llegó a la Google Sheet en 2.4s (tras el primer "cold start" del plan gratuito, que puede tardar ~30-50s si el servicio estuvo dormido).
+- **App Android actualizada:** `ApiService.kt` con la URL real, timeouts subidos de 10s a 45s (para cubrir el cold start sin que la app marque el envío como fallido innecesariamente — igual está cubierto por la cola de reintento si pasara). APK de debug recompilada.
+
+**Pendiente:** instalar la APK nueva en el celular real y probar con un Yape de verdad (no solo el endpoint a mano).
 
 ## Idea para más adelante — cuentas de usuario propias (no ahora)
 
